@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ledger — Customer Time Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">⏱</span>
+      <div class="brand-text">
+        <h1>Ledger</h1>
+        <p>Customer time tracker</p>
+      </div>
+    </div>
+
+    <div class="topbar-stat">
+      <span class="topbar-stat-value" id="totalToday">0h 00m</span>
+      <span class="topbar-stat-label">tracked today, all customers</span>
+    </div>
+
+    <button id="resetAllBtn" class="btn btn-ghost" title="Reset every timer back to zero">
+      Reset all timers
+    </button>
+  </header>
+
+  <section class="add-customer">
+    <input
+      type="text"
+      id="newCustomerInput"
+      placeholder="Add a customer, e.g. Acme Corp"
+      maxlength="60"
+      autocomplete="off"
+    />
+    <button id="addCustomerBtn" class="btn btn-primary">Add customer</button>
+  </section>
+
+  <main id="customerGrid" class="customer-grid" aria-live="polite">
+    <!-- customer cards injected here -->
+  </main>
+
+  <p id="emptyState" class="empty-state" hidden>
+    No customers yet. Add your first one above — your list is saved to this browser only.
+  </p>
+
+  <footer class="foot-note">
+    Everything here lives in this browser's local storage. Nothing is sent anywhere, and nothing is shared with colleagues automatically — each person tracks on their own machine.
+  </footer>
+
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
