@@ -201,6 +201,91 @@ body {
 }
 .card-remove:hover { color: var(--danger); }
 
+/* Live start/stop timer */
+.live-timer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1.5px dashed var(--line-strong);
+  background: var(--paper);
+}
+
+.live-timer.running {
+  border-style: solid;
+  border-color: var(--danger);
+  background: #fdece8;
+}
+
+.live-timer select {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  padding: 7px 8px;
+  border-radius: 6px;
+  border: 1.3px solid var(--line-strong);
+  background: var(--paper-raised);
+  color: var(--ink);
+}
+
+.rec-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--danger);
+  animation: pulseDot 1.4s ease-in-out infinite;
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.live-timer-label {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.live-timer-label strong {
+  color: var(--ink);
+}
+
+.live-timer-clock {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.btn-start, .btn-stop {
+  padding: 7px 14px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.btn-start {
+  background: var(--billable);
+  border-color: var(--billable);
+  color: #fff;
+}
+.btn-start:hover { background: #255c41; }
+
+.btn-stop {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+.btn-stop:hover { background: #862f21; }
+
 /* Task rows */
 .task-row {
   display: flex;
@@ -346,5 +431,5 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .btn, .pill-btn, .task-time.pulse { transition: none; animation: none; }
+  .btn, .pill-btn, .task-time.pulse, .rec-dot { transition: none; animation: none; }
 }

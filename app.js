@@ -22,6 +22,9 @@
       if (!raw) return { customers: [] };
       var parsed = JSON.parse(raw);
       if (!parsed || !Array.isArray(parsed.customers)) return { customers: [] };
+      parsed.customers.forEach(function (c) {
+        if (!("activeTimer" in c) || c.activeTimer === undefined) c.activeTimer = null;
+      });
       return parsed;
     } catch (e) {
       console.error("Could not read saved data, starting fresh.", e);
@@ -50,6 +53,14 @@
     return h + "h " + String(m).padStart(2, "0") + "m";
   }
 
+  function formatElapsed(ms) {
+    var totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    var h = Math.floor(totalSeconds / 3600);
+    var m = Math.floor((totalSeconds % 3600) / 60);
+    var s = totalSeconds % 60;
+    return String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+  }
+
   function defaultTasks() {
     return [
       { id: uid(), name: "Billable", minutes: 0, kind: "billable" },
@@ -76,7 +87,7 @@
   function addCustomer(name) {
     var trimmed = name.trim();
     if (!trimmed) return;
-    state.customers.push({ id: uid(), name: trimmed, tasks: defaultTasks() });
+    state.customers.push({ id: uid(), name: trimmed, tasks: defaultTasks(), activeTimer: null });
     saveState();
     render();
   }
@@ -116,8 +127,37 @@
     var customer = findCustomer(customerId);
     if (!customer) return;
     customer.tasks = customer.tasks.filter(function (t) { return t.id !== taskId; });
+    if (customer.activeTimer && customer.activeTimer.taskId === taskId) {
+      customer.activeTimer = null;
+    }
     saveState();
     render();
+  }
+
+  function startTimer(customerId, taskId) {
+    var customer = findCustomer(customerId);
+    if (!customer) return;
+    var task = findTask(customer, taskId);
+    if (!task) return;
+    customer.activeTimer = { taskId: taskId, startedAt: Date.now() };
+    saveState();
+    renderCard(customerId);
+  }
+
+  function stopTimer(customerId) {
+    var customer = findCustomer(customerId);
+    if (!customer || !customer.activeTimer) return;
+    var elapsedMs = Date.now() - customer.activeTimer.startedAt;
+    var taskId = customer.activeTimer.taskId;
+    var task = findTask(customer, taskId);
+    var elapsedMinutes = Math.round(elapsedMs / 60000);
+    if (task) task.minutes = Math.max(0, task.minutes + elapsedMinutes);
+    customer.activeTimer = null;
+    saveState();
+    renderCard(customerId);
+    if (task) renderTaskRow(customerId, taskId);
+    updateCustomerTotal(customerId);
+    updateGrandTotal();
   }
 
   function resetAllTimers() {
@@ -125,6 +165,7 @@
     if (!confirm("Reset every timer for every customer back to zero? Customers and custom tasks stay, only the tracked time is cleared.")) return;
     state.customers.forEach(function (c) {
       c.tasks.forEach(function (t) { t.minutes = 0; });
+      c.activeTimer = null;
     });
     saveState();
     render();
@@ -150,6 +191,35 @@
     );
   }
 
+  function liveTimerHtml(customer) {
+    if (customer.tasks.length === 0) return "";
+
+    if (customer.activeTimer) {
+      var activeTask = findTask(customer, customer.activeTimer.taskId);
+      var taskName = activeTask ? escapeHtml(activeTask.name) : "task";
+      var elapsed = formatElapsed(Date.now() - customer.activeTimer.startedAt);
+      return (
+        '<div class="live-timer running">' +
+          '<span class="rec-dot" aria-hidden="true"></span>' +
+          '<span class="live-timer-label">Tracking <strong>' + taskName + '</strong></span>' +
+          '<span class="live-timer-clock" data-role="live-clock">' + elapsed + '</span>' +
+          '<button class="btn btn-stop" data-action="stop-timer">Stop</button>' +
+        '</div>'
+      );
+    }
+
+    var options = customer.tasks.map(function (t) {
+      return '<option value="' + t.id + '">' + escapeHtml(t.name) + '</option>';
+    }).join("");
+
+    return (
+      '<div class="live-timer">' +
+        '<select data-role="timer-task-select" aria-label="Task to track">' + options + '</select>' +
+        '<button class="btn btn-start" data-action="start-timer">Start</button>' +
+      '</div>'
+    );
+  }
+
   function customerCardHtml(customer) {
     var total = customer.tasks.reduce(function (sum, t) { return sum + t.minutes; }, 0);
     var rows = customer.tasks.map(function (t) { return taskRowHtml(customer.id, t); }).join("");
@@ -160,6 +230,7 @@
           '<div class="card-total" data-role="customer-total">' + formatMinutes(total) + '</div>' +
           '<button class="card-remove" data-action="remove-customer" title="Remove customer">✕</button>' +
         '</div>' +
+        liveTimerHtml(customer) +
         rows +
         '<div class="add-task-row">' +
           '<input type="text" placeholder="Custom task name…" maxlength="40" data-role="new-task-input" />' +
@@ -173,6 +244,23 @@
     grid.innerHTML = state.customers.map(customerCardHtml).join("");
     emptyState.hidden = state.customers.length > 0;
     updateGrandTotal();
+  }
+
+  function renderCard(customerId) {
+    var customer = findCustomer(customerId);
+    var oldCard = grid.querySelector('.card[data-customer-id="' + customerId + '"]');
+    if (!customer || !oldCard) return;
+    var wrapper = document.createElement("div");
+    wrapper.innerHTML = customerCardHtml(customer);
+    oldCard.replaceWith(wrapper.firstElementChild);
+  }
+
+  function tickClocks() {
+    state.customers.forEach(function (c) {
+      if (!c.activeTimer) return;
+      var clockEl = grid.querySelector('.card[data-customer-id="' + c.id + '"] [data-role="live-clock"]');
+      if (clockEl) clockEl.textContent = formatElapsed(Date.now() - c.activeTimer.startedAt);
+    });
   }
 
   function renderTaskRow(customerId, taskId) {
@@ -233,6 +321,15 @@
       addCustomTask(customerId, input.value);
       return;
     }
+    if (action === "start-timer") {
+      var select = card.querySelector('[data-role="timer-task-select"]');
+      if (select) startTimer(customerId, select.value);
+      return;
+    }
+    if (action === "stop-timer") {
+      stopTimer(customerId);
+      return;
+    }
 
     var taskRow = e.target.closest(".task-row[data-task-id]");
     if (taskRow) {
@@ -253,4 +350,12 @@
   // ---------- init ----------
 
   render();
+  tickClocks();
+  setInterval(tickClocks, 1000);
+
+  // Keep running timers accurate/paused correctly if the tab is hidden and
+  // the browser throttles timers - resync the moment it's visible again.
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) tickClocks();
+  });
 })();
