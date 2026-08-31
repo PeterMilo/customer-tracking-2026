@@ -160,6 +160,27 @@
     updateGrandTotal();
   }
 
+  function reorderCustomer(draggedId, targetId, insertAfter) {
+    if (draggedId === targetId) return;
+    var fromIndex = state.customers.findIndex(function (c) { return c.id === draggedId; });
+    if (fromIndex === -1) return;
+    var draggedItem = state.customers.splice(fromIndex, 1)[0];
+
+    if (!targetId) {
+      // No target card (dropped on empty grid space) — send to the end.
+      state.customers.push(draggedItem);
+    } else {
+      var targetIndex = state.customers.findIndex(function (c) { return c.id === targetId; });
+      if (targetIndex === -1) {
+        state.customers.push(draggedItem);
+      } else {
+        state.customers.splice(insertAfter ? targetIndex + 1 : targetIndex, 0, draggedItem);
+      }
+    }
+    saveState();
+    render();
+  }
+
   function resetAllTimers() {
     if (state.customers.length === 0) return;
     if (!confirm("Reset every timer for every customer back to zero? Customers and custom tasks stay, only the tracked time is cleared.")) return;
@@ -224,8 +245,9 @@
     var total = customer.tasks.reduce(function (sum, t) { return sum + t.minutes; }, 0);
     var rows = customer.tasks.map(function (t) { return taskRowHtml(customer.id, t); }).join("");
     return (
-      '<div class="card" data-customer-id="' + customer.id + '">' +
+      '<div class="card" data-customer-id="' + customer.id + '" draggable="false">' +
         '<div class="card-head">' +
+          '<span class="drag-handle" title="Drag to reorder" aria-hidden="true">⠿</span>' +
           '<div class="card-title">' + escapeHtml(customer.name) + '</div>' +
           '<div class="card-total" data-role="customer-total">' + formatMinutes(total) + '</div>' +
           '<button class="card-remove" data-action="remove-customer" title="Remove customer">✕</button>' +
@@ -345,6 +367,71 @@
       var card = e.target.closest(".card[data-customer-id]");
       addCustomTask(card.getAttribute("data-customer-id"), e.target.value);
     }
+  });
+
+  // ---------- drag-and-drop reordering ----------
+  // Only the small grip icon (.drag-handle) arms dragging on its card, so
+  // clicking/selecting text in buttons and inputs elsewhere is unaffected.
+
+  var dropIndicatorClasses = ["drag-over-top", "drag-over-bottom"];
+
+  function clearDragIndicators() {
+    grid.querySelectorAll(".card").forEach(function (c) {
+      c.classList.remove(dropIndicatorClasses[0], dropIndicatorClasses[1]);
+    });
+  }
+
+  grid.addEventListener("mousedown", function (e) {
+    var handle = e.target.closest(".drag-handle");
+    var card = e.target.closest(".card[data-customer-id]");
+    if (card) card.setAttribute("draggable", handle ? "true" : "false");
+  });
+
+  grid.addEventListener("dragstart", function (e) {
+    var card = e.target.closest(".card[data-customer-id]");
+    if (!card || card.getAttribute("draggable") !== "true") return;
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", card.getAttribute("data-customer-id"));
+    card.classList.add("dragging");
+  });
+
+  grid.addEventListener("dragend", function (e) {
+    var card = e.target.closest(".card[data-customer-id]");
+    if (card) {
+      card.classList.remove("dragging");
+      card.setAttribute("draggable", "false");
+    }
+    clearDragIndicators();
+  });
+
+  grid.addEventListener("dragover", function (e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    var card = e.target.closest(".card[data-customer-id]");
+    if (!card || card.classList.contains("dragging")) {
+      clearDragIndicators();
+      return;
+    }
+    var rect = card.getBoundingClientRect();
+    var isAfter = (e.clientY - rect.top) > rect.height / 2;
+    clearDragIndicators();
+    card.classList.add(isAfter ? "drag-over-bottom" : "drag-over-top");
+  });
+
+  grid.addEventListener("drop", function (e) {
+    e.preventDefault();
+    var draggedId = e.dataTransfer.getData("text/plain");
+    if (!draggedId) return;
+    var card = e.target.closest(".card[data-customer-id]");
+    if (!card) {
+      reorderCustomer(draggedId, null, false);
+    } else {
+      var targetId = card.getAttribute("data-customer-id");
+      var rect = card.getBoundingClientRect();
+      var isAfter = (e.clientY - rect.top) > rect.height / 2;
+      reorderCustomer(draggedId, targetId, isAfter);
+    }
+    clearDragIndicators();
   });
 
   // ---------- init ----------

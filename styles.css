@@ -170,17 +170,42 @@ body {
 
 .card-head {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: center;
   gap: 8px;
   border-bottom: 1px dashed var(--line-strong);
   padding-bottom: 10px;
+}
+
+.drag-handle {
+  flex-shrink: 0;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--ink-soft);
+  cursor: grab;
+  padding: 2px 2px;
+  user-select: none;
+}
+
+.drag-handle:hover { color: var(--ink); }
+
+.card.dragging {
+  opacity: 0.4;
+}
+
+.card.drag-over-top {
+  box-shadow: 0 -3px 0 0 var(--ink);
+}
+
+.card.drag-over-bottom {
+  box-shadow: 0 3px 0 0 var(--ink);
 }
 
 .card-title {
   font-weight: 700;
   font-size: 16px;
   word-break: break-word;
+  flex: 1;
+  min-width: 0;
 }
 
 .card-total {
